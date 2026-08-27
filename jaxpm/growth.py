@@ -243,7 +243,13 @@ def _growth_factor_ODE(cosmo, a, log10_amin=-3, steps=128, eps=1e-4):
         Growth factor computed at requested scale factor
     """
     # Check if growth has already been computed
-    if not "background.growth_factor" in cosmo._workspace.keys():
+    if "background.growth_factor" in cosmo._workspace.keys():
+        cache = cosmo._workspace["background.growth_factor"]
+        if "h" in cache.keys():
+            return np.clip(interp(a, cache["a"], cache["g"]), 0.0, 1.0)
+
+    #
+    if True:
         # Compute tabulated array
         atab = np.logspace(log10_amin, 0.0, steps)
 
@@ -291,9 +297,8 @@ def _growth_factor_ODE(cosmo, a, log10_amin=-3, steps=128, eps=1e-4):
             "h2": h2tab,
         }
         cosmo._workspace["background.growth_factor"] = cache
-    else:
-        cache = cosmo._workspace["background.growth_factor"]
-    return np.clip(interp(a, cache["a"], cache["g"]), 0.0, 1.0)
+        
+        return np.clip(interp(a, cache["a"], cache["g"]), 0.0, 1.0)
 
 
 def _growth_rate_ODE(cosmo, a):
@@ -552,9 +557,13 @@ def dGfa(cosmo, a):
     cache = cosmo._workspace['background.growth_factor']
     # Backfill missing higher-derivative cache entries if needed
     if 'h' not in cache:
+        print(cache)
+
         # Ensure the growth ODE cache is fully populated with h/ h2 terms
         _growth_factor_ODE(cosmo, np.atleast_1d(1.0))
         cache = cosmo._workspace['background.growth_factor']
+        if 'h' not in cache:
+            print(cache)
     f1p = cache['h'] / cache['a'] * cache['g']
     f1p = interp(np.log(a), np.log(cache['a']), f1p)
     Ea = E(cosmo, a)
